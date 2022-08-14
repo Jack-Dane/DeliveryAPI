@@ -185,9 +185,6 @@ class UberEats(BaseFoodModel, ABC):
             self._addressInformation = response.json()["data"][0]
 
     def _setAddressInformation(self):
-        if not self._addressInformation:
-            return
-
         response = self.SESSION.post(
             "https://www.ubereats.com/api/getLocationDetailsV1?localeCode=gb",
             headers={"User-Agent": USER_AGENT},
