@@ -19,8 +19,8 @@ export default {
 
         async getResponse () {
             let self = this;
-            let data = await fetch(
-                self.requestURL + self.requestEndpoint + self.deliveryItem + "/" + this.postcode,
+            await fetch(
+                self.requestURL + self.requestEndpoint + self.deliveryItem + "?postcode=" + this.postcode,
                 {
                     headers: {
                         "Content-Type": "application/json",
@@ -31,7 +31,7 @@ export default {
             }).then(function(result) {
                 self.result = result;
             }).catch(function(error) {
-                console.log("Something went wrong");
+                console.log("Something went wrong: " + error);
             });
         }
 

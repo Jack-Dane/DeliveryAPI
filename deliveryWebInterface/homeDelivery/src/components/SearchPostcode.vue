@@ -9,7 +9,6 @@ export default {
 
     methods: {
         changePostcode () {
-            console.log(this.$router);
             this.$router.push({name: "home", query: {"postcode": this.postcode}});
         }
     }
