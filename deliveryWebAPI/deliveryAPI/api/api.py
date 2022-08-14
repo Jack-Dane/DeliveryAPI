@@ -1,4 +1,4 @@
-from typing import Type, Dict
+from typing import Type, Dict, Union
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,8 +23,8 @@ def getResponseData(foodItem: Type[BaseFoodModel], postcode: str) -> Dict:
     return {foodItemInstance.name: foodItemInstance.canDeliver()}
 
 
-@app.get("/delivery/food/{postcode}")
-def foodDeliveryData(postcode: str):
+@app.get("/delivery/food")
+def foodDeliveryData(postcode: Union[str, None]):
     response = {}
     for foodItem in foodItems:
         foodItemInstance = foodItem(postcode)
@@ -32,26 +32,26 @@ def foodDeliveryData(postcode: str):
     return response
 
 
-@app.get("/delivery/food/pizzahut/{postcode}")
-def foodDeliveryDataPizzaHut(postcode: str):
+@app.get("/delivery/food/pizzahut")
+def foodDeliveryDataPizzaHut(postcode: Union[str, None]):
     return getResponseData(PizzaHut, postcode)
 
 
-@app.get("/delivery/food/dominos/{postcode}")
-def foodDeliveryDataDominos(postcode: str):
+@app.get("/delivery/food/dominos")
+def foodDeliveryDataDominos(postcode: Union[str, None]):
     return getResponseData(Dominos, postcode)
 
 
-@app.get("/delivery/food/mcdonalds/{postcode}")
-def foodDeliveryDataMcdonalds(postcode: str):
+@app.get("/delivery/food/mcdonalds")
+def foodDeliveryDataMcdonalds(postcode: Union[str, None]):
     return getResponseData(McDonalds, postcode)
 
 
-@app.get("/delivery/food/kfc/{postcode}")
-def foodDeliveryDataKFC(postcode: str):
+@app.get("/delivery/food/kfc")
+def foodDeliveryDataKFC(postcode: Union[str, None]):
     return getResponseData(KFC, postcode)
 
 
-@app.get("/delivery/food/burgerking/{postcode}")
-def foodDeliveryDataBurgerKing(postcode: str):
+@app.get("/delivery/food/burgerking")
+def foodDeliveryDataBurgerKing(postcode: Union[str, None]):
     return getResponseData(BurgerKing, postcode)
