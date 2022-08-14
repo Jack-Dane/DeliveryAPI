@@ -155,8 +155,7 @@ class Test_Dominos_canDeliver(TestCase):
 class Test_UberEatsSession_validSession(TestCase):
 
     def test_valid_session(self, requests):
-        session = UberEatsSession()
-        session.postcode = "ABCD 1EF"
+        session = UberEatsSession("ABCD 1EF")
         session.cookies.set("uev2.loc", "XYZ ABCD 1EF XYZ")
 
         isValidSession = session.validSession("ABCD 1EF")
@@ -164,16 +163,14 @@ class Test_UberEatsSession_validSession(TestCase):
         self.assertTrue(isValidSession)
 
     def test_no_cookie(self, requests):
-        session = UberEatsSession()
-        session.postcode = "ABCD 1EF"
+        session = UberEatsSession("ABCD 1EF")
 
         isValidSession = session.validSession("ABCD 1EF")
 
         self.assertFalse(isValidSession)
 
     def test_different_postcode(self, requests):
-        session = UberEatsSession()
-        session.postcode = "ABCD 1EF"
+        session = UberEatsSession("ABCD 1EF")
         session.cookies.set("uev2.loc", "XYZ ABCD 1EF XYZ")
 
         isValidSession = session.validSession("DCBA 1EF")
@@ -186,7 +183,7 @@ class Test_UberEatsSession_validSession(TestCase):
 class Test_UberEatsSession_post(TestCase):
 
     def test_passed_headers(self, Session_post, requests):
-        session = UberEatsSession()
+        session = UberEatsSession("ABCD 1EF")
 
         session.post(
             "https://www.ubereats.com",
@@ -199,7 +196,7 @@ class Test_UberEatsSession_post(TestCase):
         )
 
     def test_no_passed_headers(self, Session_post, rqeuests):
-        session = UberEatsSession()
+        session = UberEatsSession("ABCD 1EF")
 
         session.post(
             "https://www.ubereats.com"
@@ -219,73 +216,9 @@ class UberEatsSubclassTest(UberEats):
 
 
 @patch(MODULE_PATH + "requests")
-@patch.object(UberEats, "_validSession", return_value=True)
 class Test_UberEats_canDeliver(TestCase):
 
-    def test_existing_session_ok(self, UberEats_validSession, requests):
-        uberSession = MagicMock()
-        response = MagicMock()
-        uberSession.post.return_value = response
-        response.json.return_value = {
-            "data": [
-                {
-                    "type": "store",
-                    "store": {
-                        "title": "ABC TEST ABC"
-                    }
-                }
-            ]
-        }
-        uberEats = UberEatsSubclassTest("ABCD 1EF")
-        uberEats.SESSION = uberSession
-
-        canDeliver = uberEats.canDeliver()
-
-        self.assertTrue(canDeliver)
-
-    def test_existing_session_no_stores(self, UberEats_validSession, requests):
-        uberSession = MagicMock()
-        response = MagicMock()
-        uberSession.post.return_value = response
-        response.json.return_value = {
-            "data": []
-        }
-        uberEats = UberEatsSubclassTest("ABCD 1EF")
-        uberEats.SESSION = uberSession
-
-        canDeliver = uberEats.canDeliver()
-
-        self.assertFalse(canDeliver)
-
-    def test_existing_session_no_valid_stores(self, UberEats_validSession, requests):
-        uberSession = MagicMock()
-        response = MagicMock()
-        uberSession.post.return_value = response
-        response.json.return_value = {
-            "data": [
-                {
-                    "type": "store",
-                    "store": {
-                        "title": "ABC TE ST ABC"
-                    }
-                },
-                {
-                    "type": "text",
-                    "store": {
-                        "title": "ABC TEST ABC"
-                    }
-                }
-            ]
-        }
-        uberEats = UberEatsSubclassTest("ABCD 1EF")
-        uberEats.SESSION = uberSession
-
-        canDeliver = uberEats.canDeliver()
-
-        self.assertFalse(canDeliver)
-
-    def test_no_session_ok(self, UberEats_validSession, requests):
-        UberEats_validSession.return_value = False
+    def test_ok(self, requests):
         uberSession = MagicMock()
         getAddressInfoResponse = MagicMock()
         getAddressInfoResponse.json.return_value = {
@@ -312,7 +245,7 @@ class Test_UberEats_canDeliver(TestCase):
         }
         uberSession.post.side_effect = [getAddressInfoResponse, setAddressInfoResponse, locationResponse]
         uberEats = UberEatsSubclassTest("ABCD 1EF")
-        uberEats.SESSION = uberSession
+        uberEats._session = uberSession
 
         canDeliver = uberEats.canDeliver()
 
@@ -345,27 +278,43 @@ class Test_UberEats_canDeliver(TestCase):
         )
         uberSession.cookies.set.assert_called_once_with("uev2.loc", '["addressData"]')
 
-
-class Test_UberEats__validSession(TestCase):
-
-    def test_valid_session(self):
+    def test_no_stores(self, requests):
+        uberSession = MagicMock()
+        response = MagicMock()
+        uberSession.post.return_value = response
+        response.json.return_value = {
+            "data": []
+        }
         uberEats = UberEatsSubclassTest("ABCD 1EF")
-        uberEatsSession = MagicMock()
-        uberEatsSession.validSession.return_value = True
-        UberEats.SESSION = uberEatsSession
+        uberEats._session = uberSession
 
-        isValidSession = uberEats._validSession()
+        canDeliver = uberEats.canDeliver()
 
-        self.assertTrue(isValidSession)
+        self.assertFalse(canDeliver)
 
-    def test_invalid_session(self):
+    def test_no_valid_stores(self, requests):
+        uberSession = MagicMock()
+        response = MagicMock()
+        uberSession.post.return_value = response
+        response.json.return_value = {
+            "data": [
+                {
+                    "type": "store",
+                    "store": {
+                        "title": "ABC TE ST ABC"
+                    }
+                },
+                {
+                    "type": "text",
+                    "store": {
+                        "title": "ABC TEST ABC"
+                    }
+                }
+            ]
+        }
         uberEats = UberEatsSubclassTest("ABCD 1EF")
-        uberEatsSession = MagicMock()
-        uberEatsSession.postcode = "GHIJ 2KL"
-        uberEatsSession.validSession.return_value = False
-        UberEats.SESSION = uberEatsSession
+        uberEats._session = uberSession
 
-        isValidSession = uberEats._validSession()
+        canDeliver = uberEats.canDeliver()
 
-        self.assertFalse(isValidSession)
-        self.assertEqual(UberEats.SESSION.postcode, "ABCD 1EF")
+        self.assertFalse(canDeliver)

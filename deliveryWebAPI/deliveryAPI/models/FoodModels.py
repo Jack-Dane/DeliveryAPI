@@ -98,9 +98,9 @@ class UberEatsSession(requests.Session):
 
     X_CSRF_TOKEN: str = "x"  # Seems to always be "x" for now, luckily
 
-    def __init__(self):
+    def __init__(self, postcode):
         super().__init__()
-        self.postcode = None
+        self.postcode = postcode
 
     def validSession(self, postcode: str) -> bool:
         if self.postcode != postcode:
@@ -118,13 +118,10 @@ class UberEatsSession(requests.Session):
 
 class UberEats(BaseFoodModel, ABC):
 
-    SESSION: UberEatsSession = UberEatsSession()
-
     def __init__(self, postcode):
         super().__init__(postcode)
+        self._session = UberEatsSession(postcode)
         self._postcode = postcode
-        if not self.SESSION.postcode:
-            self.SESSION.postcode = postcode
         self._addressInformation = None
 
     @property
@@ -137,23 +134,15 @@ class UberEats(BaseFoodModel, ABC):
         return "Uber Eats"
 
     def canDeliver(self):
-        if not self._validSession():
-            self._getAddressInformation()
-            if not self._addressInformation:
-                return False
+        self._getAddressInformation()
+        if not self._addressInformation:
+            return False
 
-            self._setAddressInformation()
+        self._setAddressInformation()
 
         locations = self._findLocations()
         canDeliver = self._parseResponse(locations)
         return canDeliver
-
-    def _validSession(self) -> bool:
-        if UberEats.SESSION.validSession(self._postcode):
-            return True
-        UberEats.SESSION = UberEatsSession()
-        UberEats.SESSION.postcode = self._postcode
-        return False
 
     def _findLocations(self) -> Dict:
         requestData = {
@@ -163,7 +152,7 @@ class UberEats(BaseFoodModel, ABC):
             "endTime": 0,
             "vertical": "ALL",
         }
-        response = self.SESSION.post(
+        response = self._session.post(
             "https://www.ubereats.com/api/getSearchSuggestionsV1?localeCode=gb",
             headers={"User-Agent": USER_AGENT},
             data=requestData
@@ -175,7 +164,7 @@ class UberEats(BaseFoodModel, ABC):
         requestParams = {
             "query": self._postcode,
         }
-        response = self.SESSION.post(
+        response = self._session.post(
             "https://www.ubereats.com/api/getLocationAutocompleteV1?localeCode=gb",
             headers={"User-Agent": USER_AGENT},
             data=requestParams
@@ -185,12 +174,12 @@ class UberEats(BaseFoodModel, ABC):
             self._addressInformation = response.json()["data"][0]
 
     def _setAddressInformation(self):
-        response = self.SESSION.post(
+        response = self._session.post(
             "https://www.ubereats.com/api/getLocationDetailsV1?localeCode=gb",
             headers={"User-Agent": USER_AGENT},
             json=self._addressInformation
         )
-        self.SESSION.cookies.set("uev2.loc", json.dumps(response.json()["data"]))
+        self._session.cookies.set("uev2.loc", json.dumps(response.json()["data"]))
 
     def _parseResponse(self, response) -> bool:
         responseData = response["data"]
