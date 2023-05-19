@@ -1,0 +1,19 @@
+services:
+
+  api:
+    build: deliveryWebAPI/
+    network_mode: host
+    volumes:
+      - type: bind
+        source: deliveryWebAPI
+        target: /api
+
+  web:
+    build: deliveryWebInterface/
+    network_mode: host
+    volumes:
+      - type: bind
+        source: deliveryWebInterface
+        target: /web
+    depends_on:
+      - api
