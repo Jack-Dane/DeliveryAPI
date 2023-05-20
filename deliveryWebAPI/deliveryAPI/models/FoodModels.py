@@ -175,16 +175,23 @@ class UberEats(BaseFoodModel, ABC):
 
     def _setAddressInformation(self):
         response = self._session.post(
-            "https://www.ubereats.com/api/getLocationDetailsV1?localeCode=gb",
+            "https://www.ubereats.com/_p/api/getDeliveryLocationV1?localeCode=gb",
             headers={"User-Agent": USER_AGENT},
-            json=self._addressInformation
+            json={
+                "placeId": self._addressInformation["id"],
+                "provider": "google_places",
+                "source": "manual_auto_complete"
+            }
         )
         self._session.cookies.set("uev2.loc", json.dumps(response.json()["data"]))
 
     def _parseResponse(self, response) -> bool:
         responseData = response["data"]
         for responseItem in responseData:
-            if responseItem["type"] == "store" and self.searchParameter.lower() in responseItem["store"]["title"].lower():
+            if (
+                responseItem["type"] == "store" and
+                self.searchParameter.lower() in responseItem["store"]["title"].lower()
+            ):
                 return True
         return False
 

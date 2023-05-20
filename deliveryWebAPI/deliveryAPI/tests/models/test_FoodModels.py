@@ -223,7 +223,9 @@ class Test_UberEats_canDeliver(TestCase):
         getAddressInfoResponse = MagicMock()
         getAddressInfoResponse.json.return_value = {
             "data": [
-                "addressData"
+                {
+                    "id": "abc123"
+                }
             ]
         }
         setAddressInfoResponse = MagicMock()
@@ -258,9 +260,13 @@ class Test_UberEats_canDeliver(TestCase):
                     data={"query": "ABCD 1EF"}
                 ),
                 call(
-                    "https://www.ubereats.com/api/getLocationDetailsV1?localeCode=gb",
+                    "https://www.ubereats.com/_p/api/getDeliveryLocationV1?localeCode=gb",
                     headers={"User-Agent": USER_AGENT},
-                    json="addressData"
+                    json={
+                        "placeId": "abc123",
+                        "provider": "google_places",
+                        "source": "manual_auto_complete"
+                    }
                 ),
                 call(
                     "https://www.ubereats.com/api/getSearchSuggestionsV1?localeCode=gb",
@@ -299,12 +305,14 @@ class Test_UberEats_canDeliver(TestCase):
         response.json.return_value = {
             "data": [
                 {
+                    "id": "abc123",
                     "type": "store",
                     "store": {
                         "title": "ABC TE ST ABC"
                     }
                 },
                 {
+                    "id": "abc234",
                     "type": "text",
                     "store": {
                         "title": "ABC TEST ABC"
