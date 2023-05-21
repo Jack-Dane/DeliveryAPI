@@ -216,9 +216,11 @@ class UberEatsSubclassTest(UberEats):
 
 
 @patch(MODULE_PATH + "requests")
+@patch(MODULE_PATH + "UELocationCache")
 class Test_UberEats_canDeliver(TestCase):
 
-    def test_ok(self, requests):
+    def test_ok(self, UELocationCache, requests):
+        UELocationCache.getCacheLocation.return_value = None
         uberSession = MagicMock()
         getAddressInfoResponse = MagicMock()
         getAddressInfoResponse.json.return_value = {
@@ -283,8 +285,54 @@ class Test_UberEats_canDeliver(TestCase):
             uberSession.post.mock_calls
         )
         uberSession.cookies.set.assert_called_once_with("uev2.loc", '["addressData"]')
+        UELocationCache.setCacheLocation.assert_called_once_with(
+            "ABCD 1EF", setAddressInfoResponse.json.return_value["data"]
+        )
 
-    def test_no_stores(self, requests):
+    def test_cached_location(self, UELocationCache, requests):
+        UELocationCache.getCacheLocation.return_value = {
+            "cached": "location"
+        }
+        uberSession = MagicMock()
+        locationResponse = MagicMock()
+        locationResponse.json.return_value = {
+            "data": [
+                {
+                    "type": "store",
+                    "store": {
+                        "title": "ABC TEST ABC"
+                    }
+                }
+            ]
+        }
+        uberSession.post.side_effect = [locationResponse]
+        uberEats = UberEatsSubclassTest("ABCD 1EF")
+        uberEats._session = uberSession
+
+        canDeliver = uberEats.canDeliver()
+
+        self.assertTrue(canDeliver)
+        self.assertEqual(
+            [
+                call(
+                    "https://www.ubereats.com/api/getSearchSuggestionsV1?localeCode=gb",
+                    headers={"User-Agent": USER_AGENT},
+                    data={
+                        "userQuery": "Test",
+                        "date": "",
+                        "startTime": 0,
+                        "endTime": 0,
+                        "vertical": "ALL",
+                    }
+                ),
+            ],
+            uberSession.post.mock_calls
+        )
+        uberSession.cookies.set.assert_called_once_with("uev2.loc", '{"cached": "location"}')
+        UELocationCache.setCacheLocation.assert_not_called()
+
+    def test_no_location(self, UELocationCache, requests):
+        UELocationCache.getCacheLocation.return_value = None
         uberSession = MagicMock()
         response = MagicMock()
         uberSession.post.return_value = response
@@ -297,8 +345,10 @@ class Test_UberEats_canDeliver(TestCase):
         canDeliver = uberEats.canDeliver()
 
         self.assertFalse(canDeliver)
+        self.assertEqual(0, UELocationCache.setCacheLocation.call_count)
 
-    def test_no_valid_stores(self, requests):
+    def test_no_valid_stores(self, UELocationCache, requests):
+        UELocationCache.getCacheLocation.return_value = None
         uberSession = MagicMock()
         response = MagicMock()
         uberSession.post.return_value = response
@@ -326,3 +376,4 @@ class Test_UberEats_canDeliver(TestCase):
         canDeliver = uberEats.canDeliver()
 
         self.assertFalse(canDeliver)
+        self.assertEqual(1, UELocationCache.setCacheLocation.call_count)

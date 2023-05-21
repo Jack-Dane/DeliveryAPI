@@ -7,6 +7,7 @@ import requests
 from requests.exceptions import HTTPError
 
 from deliveryAPI.models import USER_AGENT
+from deliveryAPI.cache.LocationCache import UELocationCache
 
 
 class BaseFoodModel(ABC):
@@ -123,6 +124,7 @@ class UberEats(BaseFoodModel, ABC):
         self._session = UberEatsSession(postcode)
         self._postcode = postcode
         self._addressInformation = None
+        self._locationInformation = None
 
     @property
     @abstractmethod
@@ -134,11 +136,8 @@ class UberEats(BaseFoodModel, ABC):
         return "Uber Eats"
 
     def canDeliver(self):
-        self._getAddressInformation()
-        if not self._addressInformation:
+        if self._setAddressInformation() is False:
             return False
-
-        self._setAddressInformation()
 
         locations = self._findLocations()
         canDeliver = self._parseResponse(locations)
@@ -160,7 +159,39 @@ class UberEats(BaseFoodModel, ABC):
         response.raise_for_status()
         return response.json()
 
+    def _setAddressInformation(self):
+        self._getAddressInformation()
+        if not self._addressInformation:
+            return False
+
+        if not self._locationInformation:
+            self._setLocationInformation()
+
+        self._session.cookies.set("uev2.loc", json.dumps(self._locationInformation))
+
+    def _setLocationInformation(self):
+        response = self._session.post(
+            "https://www.ubereats.com/_p/api/getDeliveryLocationV1?localeCode=gb",
+            headers={"User-Agent": USER_AGENT},
+            json={
+                "placeId": self._addressInformation["id"],
+                "provider": "google_places",
+                "source": "manual_auto_complete"
+            }
+        )
+        self._locationInformation = response.json()["data"]
+        UELocationCache.setCacheLocation(self._postcode, self._locationInformation)
+
     def _getAddressInformation(self):
+        cachedLocation = UELocationCache.getCacheLocation(self._postcode)
+        if cachedLocation:
+            self._addressInformation = True
+            self._locationInformation = cachedLocation
+            return
+
+        self._getAddressInformationFromUE()
+
+    def _getAddressInformationFromUE(self):
         requestParams = {
             "query": self._postcode,
         }
@@ -172,18 +203,6 @@ class UberEats(BaseFoodModel, ABC):
         response.raise_for_status()
         if response.json()["data"]:
             self._addressInformation = response.json()["data"][0]
-
-    def _setAddressInformation(self):
-        response = self._session.post(
-            "https://www.ubereats.com/_p/api/getDeliveryLocationV1?localeCode=gb",
-            headers={"User-Agent": USER_AGENT},
-            json={
-                "placeId": self._addressInformation["id"],
-                "provider": "google_places",
-                "source": "manual_auto_complete"
-            }
-        )
-        self._session.cookies.set("uev2.loc", json.dumps(response.json()["data"]))
 
     def _parseResponse(self, response) -> bool:
         responseData = response["data"]

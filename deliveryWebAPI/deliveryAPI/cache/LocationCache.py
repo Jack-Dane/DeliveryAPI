@@ -4,7 +4,7 @@ import time
 from typing import Dict, Optional
 
 
-class UE_LocationCache:
+class UELocationCache:
 
     _CACHE_NAME = "UE_Postcodes"
     _CACHE_EXPIRY_SECONDS = 604800  # 7 days
