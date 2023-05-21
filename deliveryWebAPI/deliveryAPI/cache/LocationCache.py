@@ -20,7 +20,7 @@ class UELocationCache:
             createdDate = locationData.pop("create_date")
 
             if createdDate < time.time() - cls._CACHE_EXPIRY_SECONDS:
-                db.pop(postcode)
+                del db[postcode]
                 return None
 
             return locationData

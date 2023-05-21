@@ -1,5 +1,5 @@
 
-from unittest import TestCase
+from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
 from deliveryAPI.api.api import foodDeliveryData
@@ -19,7 +19,7 @@ class ExampleFoodItem1(BaseExampleFoodItem):
     def name(self):
         return "Example Food Item 1"
 
-    def canDeliver(self):
+    async def canDeliver(self):
         return True
 
 
@@ -29,15 +29,15 @@ class ExampleFoodItem2(BaseExampleFoodItem):
     def name(self):
         return "Example Food Item 2"
 
-    def canDeliver(self):
+    async def canDeliver(self):
         return False
 
 
 @patch(MODULE_PATH + "foodItems", [ExampleFoodItem1, ExampleFoodItem2])
-class test_foodDeliveryData(TestCase):
+class test_foodDeliveryData(IsolatedAsyncioTestCase):
 
-    def test_ok(self):
-        response = foodDeliveryData("ABCD 1EF")
+    async def test_ok(self):
+        response = await foodDeliveryData("ABCD 1EF")
 
         self.assertEqual(
             {

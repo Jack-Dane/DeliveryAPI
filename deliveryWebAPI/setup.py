@@ -11,6 +11,7 @@ setup(
     install_requires=[
         "fastapi",
         "requests",
-        "uvicorn"
+        "uvicorn",
+        "aiohttp"
     ]
 )

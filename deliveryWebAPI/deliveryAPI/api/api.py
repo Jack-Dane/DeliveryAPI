@@ -1,5 +1,7 @@
 from typing import Type, Dict, Union
+import time
 
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,40 +20,45 @@ app.add_middleware(
 )
 
 
-def getResponseData(foodItem: Type[BaseFoodModel], postcode: str) -> Dict:
+async def getResponseData(foodItem: Type[BaseFoodModel], postcode: str) -> Dict:
     foodItemInstance = foodItem(postcode)
-    return {foodItemInstance.name: foodItemInstance.canDeliver()}
+    return {foodItemInstance.name: await foodItemInstance.canDeliver()}
 
 
 @app.get("/delivery/food")
-def foodDeliveryData(postcode: Union[str, None]):
+async def foodDeliveryData(postcode: Union[str, None]):
     response = {}
     for foodItem in foodItems:
         foodItemInstance = foodItem(postcode)
-        response[foodItemInstance.name] = foodItemInstance.canDeliver()
+        foodItemTask = asyncio.create_task(foodItemInstance.canDeliver())
+        response[foodItemInstance.name] = foodItemTask
+
+    for name, task in response.items():
+        response[name] = await task
+
     return response
 
 
 @app.get("/delivery/food/pizzahut")
-def foodDeliveryDataPizzaHut(postcode: Union[str, None]):
-    return getResponseData(PizzaHut, postcode)
+async def foodDeliveryDataPizzaHut(postcode: Union[str, None]):
+    return await getResponseData(PizzaHut, postcode)
 
 
 @app.get("/delivery/food/dominos")
-def foodDeliveryDataDominos(postcode: Union[str, None]):
-    return getResponseData(Dominos, postcode)
+async def foodDeliveryDataDominos(postcode: Union[str, None]):
+    return await getResponseData(Dominos, postcode)
 
 
 @app.get("/delivery/food/mcdonalds")
-def foodDeliveryDataMcdonalds(postcode: Union[str, None]):
-    return getResponseData(McDonalds, postcode)
+async def foodDeliveryDataMcdonalds(postcode: Union[str, None]):
+    return await getResponseData(McDonalds, postcode)
 
 
 @app.get("/delivery/food/kfc")
-def foodDeliveryDataKFC(postcode: Union[str, None]):
-    return getResponseData(KFC, postcode)
+async def foodDeliveryDataKFC(postcode: Union[str, None]):
+    return await getResponseData(KFC, postcode)
 
 
 @app.get("/delivery/food/burgerking")
-def foodDeliveryDataBurgerKing(postcode: Union[str, None]):
-    return getResponseData(BurgerKing, postcode)
+async def foodDeliveryDataBurgerKing(postcode: Union[str, None]):
+    return await getResponseData(BurgerKing, postcode)

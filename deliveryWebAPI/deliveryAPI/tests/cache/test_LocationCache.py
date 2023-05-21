@@ -44,6 +44,7 @@ class Test_UELocationCache_getCacheLocation(TestCase):
         location = UELocationCache.getCacheLocation("AB12ABC")
 
         self.assertIsNone(location)
+        dbCache.__delitem__.assert_called_once_with("AB12ABC")
 
 
 @patch(MODULE_PATH + "dbm")
