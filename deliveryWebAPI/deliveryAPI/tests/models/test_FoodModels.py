@@ -1,21 +1,58 @@
-from unittest import TestCase, IsolatedAsyncioTestCase
-from unittest.mock import patch, MagicMock, call, AsyncMock, AsyncMagicMixin
+from unittest import IsolatedAsyncioTestCase
+from unittest.mock import patch, MagicMock, call, AsyncMock
 
 from aiohttp import ClientSession
 from requests.exceptions import HTTPError
 
 from deliveryAPI.models.FoodModels import (
-    PizzaHut, Dominos, UberEatsSession, UberEats, USER_AGENT
+    PizzaHut, Dominos, UberEatsSession, UberEats, USER_AGENT, BaseFoodModel
 )
 
 MODULE_PATH = "deliveryAPI.models.FoodModels."
 
 
-@patch(MODULE_PATH + "ClientSession", return_value=AsyncMock())
+class SkeletonTestFoodModel(BaseFoodModel):
+
+    def __init__(self, *args, raiseException=False):
+        self._raiseException = raiseException
+        super().__init__(*args)
+
+    @property
+    def name(self) -> str:
+        return "Test"
+
+    async def _canDeliver(self) -> bool:
+        if self._raiseException:
+            raise Exception()
+
+        return True
+
+    def _createSession(self) -> ClientSession:
+        return AsyncMock()
+
+
+class Test_BaseFoodModel_canDeliver(IsolatedAsyncioTestCase):
+
+    async def test_ok(self):
+        testFood = SkeletonTestFoodModel("AB12 1AB")
+
+        self.assertTrue(await testFood.canDeliver())
+        testFood._session.close.assert_called_once_with()
+
+    async def test_exception(self):
+        testFood = SkeletonTestFoodModel("AB12 1AB", raiseException=True)
+
+        with self.assertRaises(Exception):
+            await testFood.canDeliver()
+
+        testFood._session.close.assert_called_once_with()
+
+
 class Test_PizzaHut_canDeliver(IsolatedAsyncioTestCase):
 
+    @patch(MODULE_PATH + "ClientSession", return_value=AsyncMock())
     async def test_valid_locations(self, ClientSession_):
-        self.pizzaHut = PizzaHut("ABCD 1EF")
+        pizzaHut = PizzaHut("ABCD 1EF")
         jsonResponse = [
             {
                 "urn": "urn:yum:store:6244834e-b054-4cd2-bcb3-3f418bf2c6bc",
@@ -37,27 +74,30 @@ class Test_PizzaHut_canDeliver(IsolatedAsyncioTestCase):
         response.json = AsyncMock(return_value=jsonResponse)
         ClientSession_.return_value.get = coroutineResponse
 
-        canDeliver = await self.pizzaHut.canDeliver()
+        canDeliver = await pizzaHut.canDeliver()
 
         self.assertTrue(canDeliver)
+        pizzaHut._session.close.assert_called_once_with()
 
+    @patch(MODULE_PATH + "ClientSession", return_value=AsyncMock())
     async def test_no_locations(self, ClientSession_):
-        self.pizzaHut = PizzaHut("ABCD 1EF")
+        pizzaHut = PizzaHut("ABCD 1EF")
         response = MagicMock(response_status=200)
         coroutineResponse = AsyncMock(return_value=response)
         response.json = AsyncMock(return_value=[])
         ClientSession_.return_value.get = coroutineResponse
 
-        canDeliver = await self.pizzaHut.canDeliver()
+        canDeliver = await pizzaHut.canDeliver()
 
         self.assertFalse(canDeliver)
+        pizzaHut._session.close.assert_called_once_with()
 
 
-@patch(MODULE_PATH + "ClientSession", return_value=AsyncMock())
 class Test_Dominos_canDeliver(IsolatedAsyncioTestCase):
 
+    @patch(MODULE_PATH + "ClientSession", return_value=AsyncMock())
     async def test_valid_locations(self, ClientSession_):
-        self.dominos = Dominos("ABCD 1EF")
+        dominos = Dominos("ABCD 1EF")
         jsonResponse = {
             'data': {
                 'localStore': {
@@ -79,12 +119,14 @@ class Test_Dominos_canDeliver(IsolatedAsyncioTestCase):
         response.json = AsyncMock(return_value=jsonResponse)
         ClientSession_.return_value.get = coroutineResponse
 
-        canDeliver = await self.dominos.canDeliver()
+        canDeliver = await dominos.canDeliver()
 
         self.assertTrue(canDeliver)
+        dominos._session.close.assert_called_once_with()
 
+    @patch(MODULE_PATH + "ClientSession", return_value=AsyncMock())
     async def test_no_locations(self, ClientSession_):
-        self.dominos = Dominos("ABCD 1EF")
+        dominos = Dominos("ABCD 1EF")
         response = MagicMock()
         response.raise_for_status.side_effect = HTTPError(
             response=MagicMock(status_code=404)
@@ -92,12 +134,14 @@ class Test_Dominos_canDeliver(IsolatedAsyncioTestCase):
         coroutineResponse = AsyncMock(return_value=response)
         ClientSession_.return_value.get = coroutineResponse
 
-        canDeliver = await self.dominos.canDeliver()
+        canDeliver = await dominos.canDeliver()
 
         self.assertFalse(canDeliver)
+        dominos._session.close.assert_called_once_with()
 
+    @patch(MODULE_PATH + "ClientSession", return_value=AsyncMock())
     async def test_no_local_locations(self, ClientSession_):
-        self.dominos = Dominos("ABCD 1EF")
+        dominos = Dominos("ABCD 1EF")
         jsonResponse = {
             'data': {
                 'stores': {
@@ -119,12 +163,14 @@ class Test_Dominos_canDeliver(IsolatedAsyncioTestCase):
         coroutineResponse = AsyncMock(return_value=response)
         ClientSession_.return_value.get = coroutineResponse
 
-        canDeliver = await self.dominos.canDeliver()
+        canDeliver = await dominos.canDeliver()
 
         self.assertFalse(canDeliver)
+        dominos._session.close.assert_called_once_with()
 
+    @patch(MODULE_PATH + "ClientSession", return_value=AsyncMock())
     async def test_local_store_does_not_deliver(self, ClientSession_):
-        self.dominos = Dominos("ABCD 1EF")
+        dominos = Dominos("ABCD 1EF")
         jsonResponse = {
             'data': {
                 'localStore': {
@@ -145,9 +191,10 @@ class Test_Dominos_canDeliver(IsolatedAsyncioTestCase):
         response.json = AsyncMock(return_value=jsonResponse)
         ClientSession_.return_value.get = AsyncMock(return_value=response)
 
-        canDeliver = await self.dominos.canDeliver()
+        canDeliver = await dominos.canDeliver()
 
         self.assertFalse(canDeliver)
+        dominos._session.close.assert_called_once_with()
 
 
 @patch.object(ClientSession, "__init__")
@@ -189,9 +236,9 @@ class UberEatsSubclassTest(UberEats):
 
 
 @patch(MODULE_PATH + "UELocationCache")
-@patch(MODULE_PATH + "UberEatsSession", return_value=AsyncMock())
 class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
 
+    @patch(MODULE_PATH + "UberEatsSession", return_value=AsyncMock())
     async def test_ok(self, UberEatsSession_, UELocationCache):
         UELocationCache.getCacheLocation.return_value = None
         getAddressInfoResponse = MagicMock()
@@ -262,7 +309,9 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
         UELocationCache.setCacheLocation.assert_called_once_with(
             "ABCD 1EF", setAddressInfoResponse.json.return_value["data"]
         )
+        uberEats._session.close.assert_called_once_with()
 
+    @patch(MODULE_PATH + "UberEatsSession", return_value=AsyncMock())
     async def test_cached_location(self, UberEatsSession_, UELocationCache):
         UELocationCache.getCacheLocation.return_value = {
             "cached": "location"
@@ -303,7 +352,9 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
         )
         uberEats._session.setCookie.assert_called_once_with("uev2.loc", '{"cached": "location"}')
         UELocationCache.setCacheLocation.assert_not_called()
+        uberEats._session.close.assert_called_once_with()
 
+    @patch(MODULE_PATH + "UberEatsSession", return_value=AsyncMock())
     async def test_no_location(self, UberEatsSession_, UELocationCache):
         UELocationCache.getCacheLocation.return_value = None
         response = MagicMock()
@@ -317,7 +368,9 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
 
         self.assertFalse(canDeliver)
         self.assertEqual(0, UELocationCache.setCacheLocation.call_count)
+        uberEats._session.close.assert_called_once_with()
 
+    @patch(MODULE_PATH + "UberEatsSession", return_value=AsyncMock())
     async def test_no_valid_stores(self, UberEatsSession_, UELocationCache):
         UELocationCache.getCacheLocation.return_value = None
         response = MagicMock()
@@ -347,3 +400,4 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
 
         self.assertFalse(canDeliver)
         self.assertEqual(1, UELocationCache.setCacheLocation.call_count)
+        uberEats._session.close.assert_called_once_with()

@@ -13,6 +13,7 @@ class BaseFoodModel(ABC):
 
     def __init__(self, postcode: str):
         self._postcode = postcode
+        self._session = self._createSession()
 
     @property
     @abstractmethod
@@ -20,7 +21,17 @@ class BaseFoodModel(ABC):
         pass
 
     @abstractmethod
+    async def _canDeliver(self) -> bool:
+        pass
+
     async def canDeliver(self) -> bool:
+        try:
+            return await self._canDeliver()
+        finally:
+            await self._session.close()
+
+    @abstractmethod
+    def _createSession(self) -> ClientSession:
         pass
 
 
@@ -28,7 +39,9 @@ class IndependentDeliveryModel(BaseFoodModel, ABC):
 
     def __init__(self, postcode):
         super().__init__(postcode)
-        self._session = ClientSession()
+
+    def _createSession(self) -> ClientSession:
+        return ClientSession()
 
 
 class PizzaHut(IndependentDeliveryModel):
@@ -37,13 +50,10 @@ class PizzaHut(IndependentDeliveryModel):
     def name(self):
         return "Pizza Hut"
 
-    async def canDeliver(self):
-        try:
-            locations = await self._getLocations()
-            canDeliver = bool(locations)
-            return canDeliver
-        finally:
-            await self._session.close()
+    async def _canDeliver(self):
+        locations = await self._getLocations()
+        canDeliver = bool(locations)
+        return canDeliver
 
     async def _getLocations(self) -> Dict:
         requestParams = {
@@ -65,13 +75,10 @@ class Dominos(IndependentDeliveryModel):
     def name(self):
         return "Dominos"
 
-    async def canDeliver(self):
-        try:
-            locations = await self._getLocations()
-            canDeliver = self._parseLocations(locations)
-            return canDeliver
-        finally:
-            await self._session.close()
+    async def _canDeliver(self):
+        locations = await self._getLocations()
+        canDeliver = self._parseLocations(locations)
+        return canDeliver
 
     async def _getLocations(self) -> Dict:
         requestParams = {
@@ -124,7 +131,6 @@ class UberEats(BaseFoodModel, ABC):
 
     def __init__(self, postcode):
         super().__init__(postcode)
-        self._session = UberEatsSession(postcode)
         self._addressInformation = None
         self._locationInformation = None
 
@@ -137,16 +143,16 @@ class UberEats(BaseFoodModel, ABC):
     def name(self):
         return "Uber Eats"
 
-    async def canDeliver(self):
-        try:
-            if await self._setAddressInformation() is False:
-                return False
+    def _createSession(self) -> UberEatsSession:
+        return UberEatsSession(self._postcode)
 
-            locations = await self._findLocations()
-            canDeliver = self._parseResponse(locations)
-            return canDeliver
-        finally:
-            await self._session.close()
+    async def _canDeliver(self):
+        if await self._setAddressInformation() is False:
+            return False
+
+        locations = await self._findLocations()
+        canDeliver = self._parseResponse(locations)
+        return canDeliver
 
     async def _findLocations(self) -> Dict:
         requestData = {
