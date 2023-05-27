@@ -44,7 +44,7 @@ async def getResponseData(deliveryService: str, postcode: str) -> Dict:
     foodItem = await getDeliveryServiceFromEndpoint(deliveryService)
     foodItemInstance = foodItem(postcode)
     return {
-        foodItemInstance.name: {
+        deliveryService: {
             "can_deliver": await foodItemInstance.canDeliver()
         }
     }

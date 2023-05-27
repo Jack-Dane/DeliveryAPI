@@ -29,7 +29,7 @@ export default {
             ).then(function(response) {
                 return response.json();
             }).then(function(result) {
-                self.result = result;
+                self.result = result[self.deliveryItem]["can_deliver"];
             }).catch(function(error) {
                 console.log("Something went wrong: " + error);
             });

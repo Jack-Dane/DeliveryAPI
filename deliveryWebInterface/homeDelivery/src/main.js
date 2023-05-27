@@ -4,11 +4,8 @@ import Home from "./App.vue"
 
 import './assets/main.css';
 
-const About = { template: '<div>About</div>' };
-
 const routes = [
     { path: '/', name: "home", component: Home },
-    { path: '/about', component: About },
 ];
 
 const router = createRouter({
