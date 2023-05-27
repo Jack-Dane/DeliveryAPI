@@ -1,8 +1,8 @@
 from typing import Type, Dict, Union
-import time
 
 import asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from starlette.status import HTTP_404_NOT_FOUND
 from fastapi.middleware.cors import CORSMiddleware
 
 from deliveryAPI.models.FoodModels import (
@@ -20,9 +20,33 @@ app.add_middleware(
 )
 
 
-async def getResponseData(foodItem: Type[BaseFoodModel], postcode: str) -> Dict:
+DELIVERY_SERVICE_ENDPOINT_MAPPING = {
+    "pizzahut": PizzaHut,
+    "dominos": Dominos,
+    "mcdonalds": McDonalds,
+    "kfc": KFC,
+    "burgerking": BurgerKing
+}
+
+
+async def getDeliveryServiceFromEndpoint(endpoint: str) -> Type[BaseFoodModel]:
+    try:
+        return DELIVERY_SERVICE_ENDPOINT_MAPPING[endpoint]
+    except KeyError:
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail=f"Could not find delivery service backend for {endpoint}"
+        )
+
+
+async def getResponseData(deliveryService: str, postcode: str) -> Dict:
+    foodItem = await getDeliveryServiceFromEndpoint(deliveryService)
     foodItemInstance = foodItem(postcode)
-    return {foodItemInstance.name: await foodItemInstance.canDeliver()}
+    return {
+        foodItemInstance.name: {
+            "can_deliver": await foodItemInstance.canDeliver()
+        }
+    }
 
 
 @app.get("/delivery/food")
@@ -39,26 +63,6 @@ async def foodDeliveryData(postcode: Union[str, None]):
     return response
 
 
-@app.get("/delivery/food/pizzahut")
-async def foodDeliveryDataPizzaHut(postcode: Union[str, None]):
-    return await getResponseData(PizzaHut, postcode)
-
-
-@app.get("/delivery/food/dominos")
-async def foodDeliveryDataDominos(postcode: Union[str, None]):
-    return await getResponseData(Dominos, postcode)
-
-
-@app.get("/delivery/food/mcdonalds")
-async def foodDeliveryDataMcdonalds(postcode: Union[str, None]):
-    return await getResponseData(McDonalds, postcode)
-
-
-@app.get("/delivery/food/kfc")
-async def foodDeliveryDataKFC(postcode: Union[str, None]):
-    return await getResponseData(KFC, postcode)
-
-
-@app.get("/delivery/food/burgerking")
-async def foodDeliveryDataBurgerKing(postcode: Union[str, None]):
-    return await getResponseData(BurgerKing, postcode)
+@app.get("/delivery/food/{deliveryService}")
+async def foodDeliveryDataPizzaHut(deliveryService: str, postcode: Union[str, None]):
+    return await getResponseData(deliveryService, postcode)

@@ -1,8 +1,11 @@
-
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
-from deliveryAPI.api.api import foodDeliveryData
+from fastapi import HTTPException
+
+from deliveryAPI.api.api import (
+    foodDeliveryData, getDeliveryServiceFromEndpoint, PizzaHut
+)
 
 MODULE_PATH = "deliveryAPI.api.api."
 
@@ -34,7 +37,7 @@ class ExampleFoodItem2(BaseExampleFoodItem):
 
 
 @patch(MODULE_PATH + "foodItems", [ExampleFoodItem1, ExampleFoodItem2])
-class test_foodDeliveryData(IsolatedAsyncioTestCase):
+class Test_foodDeliveryData(IsolatedAsyncioTestCase):
 
     async def test_ok(self):
         response = await foodDeliveryData("ABCD 1EF")
@@ -45,4 +48,22 @@ class test_foodDeliveryData(IsolatedAsyncioTestCase):
                 "Example Food Item 2": False
             },
             response
+        )
+
+
+class Test_getDeliveryServiceFromEndpoint(IsolatedAsyncioTestCase):
+
+    async def test_backend_found(self):
+        deliveryService = await getDeliveryServiceFromEndpoint("pizzahut")
+
+        self.assertEqual(PizzaHut, deliveryService)
+
+    async def test_no_backend(self):
+        with self.assertRaises(HTTPException) as httpError:
+            await getDeliveryServiceFromEndpoint("notfound")
+
+        self.assertEqual(404, httpError.exception.status_code)
+        self.assertEqual(
+            "Could not find delivery service backend for notfound",
+            httpError.exception.detail
         )
