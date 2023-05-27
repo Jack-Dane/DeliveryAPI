@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from deliveryAPI.models.FoodModels import (
     BaseFoodModel, foodItems, PizzaHut, Dominos, McDonalds, KFC, BurgerKing
 )
+from deliveryAPI.api import schemas
 
 app = FastAPI()
 
@@ -49,7 +50,7 @@ async def getResponseData(deliveryService: str, postcode: str) -> Dict:
     }
 
 
-@app.get("/delivery/food")
+@app.get("/delivery/food", response_model=schemas.DeliveryServiceResponse)
 async def foodDeliveryData(postcode: Union[str, None]):
     response = {}
     for foodItem in foodItems:
@@ -58,11 +59,13 @@ async def foodDeliveryData(postcode: Union[str, None]):
         response[foodItemInstance.name] = foodItemTask
 
     for name, task in response.items():
-        response[name] = await task
+        response[name] = {
+            "can_deliver": await task
+        }
 
     return response
 
 
-@app.get("/delivery/food/{deliveryService}")
+@app.get("/delivery/food/{deliveryService}", response_model=schemas.DeliveryServiceResponse)
 async def foodDeliveryDataPizzaHut(deliveryService: str, postcode: Union[str, None]):
     return await getResponseData(deliveryService, postcode)

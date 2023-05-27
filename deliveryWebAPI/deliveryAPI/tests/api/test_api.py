@@ -44,8 +44,12 @@ class Test_foodDeliveryData(IsolatedAsyncioTestCase):
 
         self.assertEqual(
             {
-                "Example Food Item 1": True,
-                "Example Food Item 2": False
+                "Example Food Item 1": {
+                    "can_deliver": True,
+                },
+                "Example Food Item 2": {
+                    "can_deliver": False
+                }
             },
             response
         )
