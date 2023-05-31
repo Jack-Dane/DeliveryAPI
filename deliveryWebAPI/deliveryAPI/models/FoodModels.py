@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import json
 
 from aiohttp import ClientSession
-from requests.exceptions import HTTPError
+from aiohttp.client_exceptions import ClientResponseError
 
 from deliveryAPI.models import USER_AGENT
 from deliveryAPI.cache.LocationCache import UELocationCache
@@ -93,8 +93,8 @@ class Dominos(IndependentDeliveryModel):
         )
         try:
             response.raise_for_status()
-        except HTTPError as httpError:
-            if httpError.response.status_code == 404:
+        except ClientResponseError as httpError:
+            if httpError.status == 404:
                 # no locations exist
                 return {}
             raise

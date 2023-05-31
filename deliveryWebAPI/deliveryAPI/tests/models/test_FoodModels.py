@@ -2,7 +2,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch, MagicMock, call, AsyncMock
 
 from aiohttp import ClientSession
-from requests.exceptions import HTTPError
+from aiohttp.client_exceptions import ClientResponseError
 
 from deliveryAPI.models.FoodModels import (
     PizzaHut, Dominos, UberEatsSession, UberEats, USER_AGENT, BaseFoodModel
@@ -128,8 +128,8 @@ class Test_Dominos_canDeliver(IsolatedAsyncioTestCase):
     async def test_no_locations(self, ClientSession_):
         dominos = Dominos("ABCD 1EF")
         response = MagicMock()
-        response.raise_for_status.side_effect = HTTPError(
-            response=MagicMock(status_code=404)
+        response.raise_for_status.side_effect = ClientResponseError(
+            MagicMock(), MagicMock(), status=404
         )
         coroutineResponse = AsyncMock(return_value=response)
         ClientSession_.return_value.get = coroutineResponse
