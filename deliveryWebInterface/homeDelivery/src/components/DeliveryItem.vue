@@ -7,7 +7,7 @@ export default {
         requestURL: "http://localhost:8000",
         requestEndpoint: "/delivery/food/",
         canDeliver: null,
-        result: "",
+        status: "",
     }),
 
     props: {
@@ -18,6 +18,7 @@ export default {
     methods: {
 
         async getResponse () {
+            this.status = "waiting";
             let self = this;
             await fetch(
                 self.requestURL + self.requestEndpoint + self.deliveryItem + "?postcode=" + this.postcode,
@@ -29,7 +30,7 @@ export default {
             ).then(function(response) {
                 return response.json();
             }).then(function(result) {
-                self.result = result[self.deliveryItem]["can_deliver"];
+                self.status = result[self.deliveryItem]["can_deliver"];
             }).catch(function(error) {
                 console.log("Something went wrong: " + error);
             });
@@ -51,12 +52,27 @@ export default {
 </script>
 
 <template>
-  <div>
-    <img :src="`/src/assets/DeliveryLogo/${this.imageURI}`" width="50" height="50" v-on:click="getResponse"/>
-    <h1>{{ deliveryItem }}</h1>
-    <p>{{ result }}</p>
+  <div id="delivery-item-container">
+    <img :src="`/src/assets/DeliveryLogo/${this.imageURI}`" id="delivery-item-img" v-on:click="getResponse"/>
+    <p id="status">{{ status }}</p>
   </div>
 </template>
 
 <style scoped>
+
+#delivery-item-container {
+    position: relative;
+}
+
+#delivery-item-img {
+    height: 100px;
+    margin: 1em;
+}
+
+#status {
+    position: absolute;
+    display: inline-block;
+
+}
+
 </style>
