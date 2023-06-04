@@ -2,7 +2,7 @@ from typing import Dict, List, Type
 from abc import ABC, abstractmethod
 import json
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, CookieJar
 from aiohttp.client_exceptions import ClientResponseError
 
 from deliveryAPI.models import USER_AGENT
@@ -113,7 +113,9 @@ class UberEatsSession(ClientSession):
     X_CSRF_TOKEN: str = "x"  # Seems to always be "x" for now, luckily
 
     def __init__(self, postcode):
-        super().__init__()
+        # don't quote the cookie, otherwise it doesn't work
+        cookieJar = CookieJar(quote_cookie=False)
+        super().__init__(cookie_jar=cookieJar)
         self.postcode = postcode
 
     def setCookie(self, key, value):
@@ -181,6 +183,17 @@ class UberEats(BaseFoodModel, ABC):
 
         self._session.setCookie("uev2.loc", json.dumps(self._locationInformation))
 
+        # ensure location cookie has been set correctly
+        response = await self._session.post(
+            "https://www.ubereats.com/_p/api/setTargetLocationV1?localeCode=gb",
+            headers={"User-Agent": USER_AGENT}
+        )
+        jsonResponse = await response.json()
+        if jsonResponse["status"] != "success":
+            raise Exception(
+                "Something went wrong setting the location cookie for UE"
+            )
+
     async def _setLocationInformation(self):
         response = await self._session.post(
             "https://www.ubereats.com/_p/api/getDeliveryLocationV1?localeCode=gb",
@@ -200,9 +213,8 @@ class UberEats(BaseFoodModel, ABC):
         if cachedLocation:
             self._addressInformation = True
             self._locationInformation = cachedLocation
-            return
-
-        await self._getAddressInformationFromUE()
+        else:
+            await self._getAddressInformationFromUE()
 
     async def _getAddressInformationFromUE(self):
         requestParams = {

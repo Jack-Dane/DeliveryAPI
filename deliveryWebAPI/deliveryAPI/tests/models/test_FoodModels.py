@@ -238,6 +238,11 @@ class UberEatsSubclassTest(UberEats):
 @patch(MODULE_PATH + "UELocationCache")
 class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
 
+    def _locationConfirmationResponse(self, success=True):
+        response = AsyncMock()
+        response.json.return_value = {"status": "success" if success else "fail"}
+        return response
+
     @patch(MODULE_PATH + "UberEatsSession", return_value=AsyncMock())
     async def test_ok(self, UberEatsSession_, UELocationCache):
         UELocationCache.getCacheLocation.return_value = None
@@ -267,7 +272,9 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
             ]
         })
         UberEatsSession_.return_value.post = AsyncMock(
-            side_effect=[getAddressInfoResponse, setAddressInfoResponse, locationResponse]
+            side_effect=[
+                getAddressInfoResponse, setAddressInfoResponse, self._locationConfirmationResponse(), locationResponse
+            ]
         )
         UberEatsSession_.return_value.setCookie = MagicMock()
         uberEats = UberEatsSubclassTest("ABCD 1EF")
@@ -290,6 +297,10 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
                         "provider": "google_places",
                         "source": "manual_auto_complete"
                     }
+                ),
+                call(
+                    "https://www.ubereats.com/_p/api/setTargetLocationV1?localeCode=gb",
+                    headers={"User-Agent": USER_AGENT},
                 ),
                 call(
                     "https://www.ubereats.com/api/getSearchSuggestionsV1?localeCode=gb",
@@ -327,7 +338,11 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
                 }
             ]
         })
-        UberEatsSession_.return_value.post = AsyncMock(return_value=locationResponse)
+        UberEatsSession_.return_value.post = AsyncMock(
+            side_effect=[
+                self._locationConfirmationResponse(), locationResponse
+            ]
+        )
         UberEatsSession_.return_value.setCookie = MagicMock()
         uberEats = UberEatsSubclassTest("ABCD 1EF")
 
@@ -336,6 +351,10 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
         self.assertTrue(canDeliver)
         self.assertEqual(
             [
+                call(
+                    "https://www.ubereats.com/_p/api/setTargetLocationV1?localeCode=gb",
+                    headers={"User-Agent": USER_AGENT},
+                ),
                 call(
                     "https://www.ubereats.com/api/getSearchSuggestionsV1?localeCode=gb",
                     headers={"User-Agent": USER_AGENT},
@@ -362,6 +381,7 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
         response.json = AsyncMock(return_value={
             "data": []
         })
+        UberEatsSession_.return_value.setCookie = MagicMock()
         uberEats = UberEatsSubclassTest("ABCD 1EF")
 
         canDeliver = await uberEats.canDeliver()
@@ -374,8 +394,6 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
     async def test_no_valid_stores(self, UberEatsSession_, UELocationCache):
         UELocationCache.getCacheLocation.return_value = None
         response = MagicMock()
-        UberEatsSession_.return_value.post = AsyncMock(return_value=response)
-        UberEatsSession_.return_value.setCookie = MagicMock()
         response.json = AsyncMock(return_value={
             "data": [
                 {
@@ -394,10 +412,58 @@ class Test_UberEats_canDeliver(IsolatedAsyncioTestCase):
                 }
             ]
         })
+        UberEatsSession_.return_value.post = AsyncMock(
+            side_effect=[response, response, self._locationConfirmationResponse(), response]
+        )
+        UberEatsSession_.return_value.setCookie = MagicMock()
         uberEats = UberEatsSubclassTest("ABCD 1EF")
 
         canDeliver = await uberEats.canDeliver()
 
         self.assertFalse(canDeliver)
         self.assertEqual(1, UELocationCache.setCacheLocation.call_count)
+        uberEats._session.close.assert_called_once_with()
+
+    @patch(MODULE_PATH + "UberEatsSession", return_value=AsyncMock())
+    async def test_location_cookie_failed(self, UberEatsSession_, UELocationCache):
+        UELocationCache.getCacheLocation.return_value = None
+        getAddressInfoResponse = MagicMock()
+        getAddressInfoResponse.json = AsyncMock(return_value={
+            "data": [
+                {
+                    "id": "abc123"
+                }
+            ]
+        })
+        setAddressInfoResponse = MagicMock()
+        setAddressInfoResponse.json = AsyncMock(return_value={
+            "data": [
+                "addressData"
+            ]
+        })
+        locationResponse = MagicMock()
+        locationResponse.json = AsyncMock(return_value={
+            "data": [
+                {
+                    "type": "store",
+                    "store": {
+                        "title": "ABC TEST ABC"
+                    }
+                }
+            ]
+        })
+        UberEatsSession_.return_value.post = AsyncMock(
+            side_effect=[
+                getAddressInfoResponse, setAddressInfoResponse,
+                self._locationConfirmationResponse(success=False), locationResponse
+            ]
+        )
+        UberEatsSession_.return_value.setCookie = MagicMock()
+        uberEats = UberEatsSubclassTest("ABCD 1EF")
+
+        with self.assertRaisesRegex(
+                Exception, "Something went wrong setting the location cookie for UE"
+        ):
+            await uberEats.canDeliver()
+
         uberEats._session.close.assert_called_once_with()
