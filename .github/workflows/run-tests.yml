@@ -1,0 +1,27 @@
+name: "Run Tests"
+
+on:
+  push
+
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v3
+
+      - name: "Use Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: "Install Dependencies"
+        run: cd deliveryWebAPI && pip install -r requirements.txt
+
+      - name: "Run Tests"
+        run: cd deliveryWebAPI/deliveryAPI/tests && python -m unittest
